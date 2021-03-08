@@ -16,8 +16,8 @@ def try_int(x):
     else:
         return x
 
-    
-    
+
+
 # Simple function to try casting to a float or int
 def number(x):
     z = x.replace('D', 'E') # Some floating numbers use D
@@ -27,8 +27,8 @@ def number(x):
         # must be a string. Strip quotes.
         val = x.strip().strip('\'').strip('\"')
     return val
-    
-    
+
+
 #-------------------------------------------------
 # All input
 # P
@@ -36,29 +36,29 @@ def number(x):
 def parse_input(filePath):
     """
     Parses the main input file, and then parses:
-        
-        
+
+
     Returns dict of:
         'main': the main input dict
         'lattice': the lattice, if any.
         'lattice_params'
-        'beam': beam description, if any. 
-    
+        'beam': beam description, if any.
+
     """
     d = {
         'beam':None
     }
-    
+
     d['main'] = parse_main_inputfile(filePath)
-    
+
     if d['beamfile']:
         d['beam'] = parse_beam_file(d['beamfile'])
-    
-    if d['maginfile']:        
+
+    if d['maginfile']:
         eles, params = parsers.parse_genesis_lattice(d['maginfile'])
         d['lattice'] = standard_lattice_from_eles(eles)
         d['lattice_params'] = params
-              
+
     return d
 
 #-------------------------------------------------
@@ -67,63 +67,63 @@ def parse_input(filePath):
 def parse_main_inputfile(filePath, expand_paths=True, strict=True, fill_defaults=True):
     """
     Parses the main input file into a dict.
-    
+
     See: genesis.parsers.parse_main_input
     """
     with open(filePath) as f:
         rawtext = f.read()
     dat =  parse_main_input(rawtext, strict=strict, fill_defaults=fill_defaults)
-    
-    
-    
+
+
+
     if expand_paths:
         root, _ = os.path.split(os.path.abspath(filePath))
-        for key in POSSIBLE_INPUT_FILES:        
+        for key in POSSIBLE_INPUT_FILES:
             path = dat[key]
             # Skip None
             if not path:
                 continue
-           
+
             path = os.path.expandvars(path)
             if not os.path.isabs(path):
                 path = os.path.join(root, path)
             assert os.path.exists(path), f'Path for {key} does not exist: {path}'
 
             dat[key] = path
-            
+
     return dat
 
 def parse_main_input(rawtext, strict=True, fill_defaults=True):
     """
     Parses the main input text into a dict.
-    
+
     If strict, will ensure that all keys are.
-    
+
     Vectors (lout, wcoef) are flattend:
         wcoefz = 4 5 6
     becomes:
         wcoefz(1) = 4
         wcoefz(2) = 5
         wcoefz(3) = 6
-    
+
     If fill_defaults, the default parameters that Genesis uses will be filled.
-    
+
     """
     # Look for text between $newrun and $end
-    text = re.search(r'\$((?i)newrun)\n.*?\$((?i)end)', rawtext, re.DOTALL).group()
+    text = re.search(r'\$((?i)newrun).\n.*?\$((?i)end)', rawtext, re.DOTALL).group()
     input_parameters = OrderedDict() # Maintain order for readability
-    # Split on newline: \n and comma: 
+    # Split on newline: \n and comma:
     for line in re.split('\n|,',text)[1:-1]:
         if line.strip() =='':
             continue
         x = line.split('=')
-        
+
         # Windows bug? puts a new line after lout. Skip
         if len(x) == 1:
-            continue        
-        
+            continue
+
         key = x[0].strip().lower() # force all keys to be lower case
-        
+
 
         # Look for vectors
         if len(x[1].split()) == 1:
@@ -134,7 +134,7 @@ def parse_main_input(rawtext, strict=True, fill_defaults=True):
             for i, z in enumerate(x[1].split()):
                 nkey = f'{key}({i+1})'
                 input_parameters[nkey] = number(z)
-            
+
     # Check that all keys are in MAIN_INPUT_DEFAULT
     if strict:
         bad_keys = []
@@ -143,19 +143,19 @@ def parse_main_input(rawtext, strict=True, fill_defaults=True):
                 bad_keys.append(k)
         if len(bad_keys) > 0:
             raise ValueError(f'Bad keys found in main input: {bad_keys}')
-            
+
     if not fill_defaults:
         return input_parameters
-    
+
     # Fill defaults.
     d = MAIN_INPUT_DEFAULT.copy()
     for k, v in input_parameters.items():
         d[k] = v
-    
-    return d
-    
 
-    
+    return d
+
+
+
 
 
 #-------------------------------------------------
@@ -167,16 +167,16 @@ def parse_outfile_lattice(latticetext):
     lines = [x.split() for x in lines if len(x.strip())>0] # Remove empty lines
     rdat = [map(float, x) for x in lines] # Cast to floats
     rdat = list(map(list, zip(*rdat))) # Transpose
-    
+
     header = ['z', 'aw', 'qfld'] #was: s1.split() from below
     data = {}
     # Populate column data
     for i in range(len(header)):
         data[header[i]] = np.array(rdat[i])
-        
-        
-    return data    
-    
+
+
+    return data
+
 
 
 #-------------------------------------------------
@@ -198,24 +198,24 @@ def parse_slice(slicetext):
     d['data'] = data
 
     return d
-    
-    
+
+
 #-------------------------------------------------
 # Full .out file
- 
-    
+
+
 def old_parse_genesis_out(fname, save_raw=False):
     """
     Old routine. See the new routine:
-    
+
     parse_genesis_output
     """
     with open(fname, 'r') as f:
-        rawdat = f.read()  
+        rawdat = f.read()
     d = {}
     if save_raw:
         d['raw'] = rawdat # Save this just in case something was missed
-    
+
     # magic strings to search for
     s1 = '    z[m]          aw            qfld '
     s2 = '********** output: slice'
@@ -223,14 +223,14 @@ def old_parse_genesis_out(fname, save_raw=False):
     sdat = dat.split(s2)
     latticetext = sdat[0]
     slices = sdat[1:]
-    
+
     d['param'] = parse_main_input(header, fill_defaults=False)
     d['lattice'] = parse_outfile_lattice(latticetext)
     d['slice_data'] = [parse_slice(s) for s in slices]
-        
-    return d    
-    
-   
+
+    return d
+
+
 # New labels
 RELABEL_OUT = {
     'power': 'field_power',
@@ -250,20 +250,20 @@ RELABEL_OUT = {
 def new_outfile_label(key):
     if key in RELABEL_OUT:
         return RELABEL_OUT[key]
-    return key  
-    
-    
-    
+    return key
+
+
+
 def parse_genesis_out(fname, save_raw=False, relabel=False):
     """
-    
+
     """
     with open(fname, 'r') as f:
-        rawdat = f.read()  
+        rawdat = f.read()
     d = {}
     if save_raw:
         d['raw'] = rawdat # Save this just in case something was missed
-    
+
     # magic strings to search for
     s1 = '    z[m]          aw            qfld '
     s2 = '********** output: slice'
@@ -271,18 +271,18 @@ def parse_genesis_out(fname, save_raw=False, relabel=False):
     sdat = dat.split(s2)
     latticetext = sdat[0]
     slices = sdat[1:]
-    
+
     d['param'] = parse_main_input(header, fill_defaults=False)
-    
+
     # Load lattice readback, as well as slice data, into data
     d['data'] = parse_outfile_lattice(latticetext)
     d2 = d['data']
-    
+
     sdata = [parse_slice(s) for s in slices]
     # Form 1D data
     for key in ['index', 'current']:
-        d2[key] = np.array([sli[key] for sli in sdata]) 
-    
+        d2[key] = np.array([sli[key] for sli in sdata])
+
     # Form 2D data
     skeys = list(sdata[0]['data'])
     for key in skeys:
@@ -291,60 +291,60 @@ def parse_genesis_out(fname, save_raw=False, relabel=False):
         else:
             newkey=key
         d2[newkey] = np.array([sli['data'][key] for sli in sdata])
-    
-        
-        
-    return d       
+
+
+
+    return d
 
 #-------------------------------------------------
 # .lat file
 def parse_genesis_lattice(filePath):
     """
-    
+
     """
-    
-    
-    
+
+
+
     with open(filePath, 'r') as f:
         lines = f.readlines()
         lattice = parse_genesis_lattice_lines(lines)
     return lattice
-    
-    
+
+
 def parse_genesis_lattice_lines(lines):
     """
     Parses a Genesis style into a list of ele dicts
-    Will unfold loops 
-    
+    Will unfold loops
+
     returns dict of
-    eles: list of elements, as dicts with keys: type, strength, L, d   
+    eles: list of elements, as dicts with keys: type, strength, L, d
     param: parameter dicts identifed with ? <key> = <value>
     """
     commentchar =  '#'
     inLoop = False
     eles = []
     param = {}
-    
+
     for line in lines:
         x = line.strip()
         if len(x) ==0:
             continue
-            
+
         # Parameter, starts with ?
         if x[0] == '?':
             a = x[1:].split('=')
             key = a[0].strip().lower()
             # Strip off comments:
             val = a[1].split(commentchar)[0]
-            val = number(val)    
+            val = number(val)
             param[key] = val
             continue
         # Comment line
         if x[0] == commentchar:
             ele = {'type':'comment', 'text':line.strip('\n'), 'zend':0}
             eles.append(ele)
-            continue    
-            
+            continue
+
         # Loop commands: ! LOOP = <integer>, and ! ENDLOOP
         if x[0] == '!':
             command = x[1:].split('=')
@@ -357,37 +357,37 @@ def parse_genesis_lattice_lines(lines):
                 for e in nloop*loopeles:
                     eles.append(e.copy())
             continue
-        
+
         # must be an ele
         ele = {}
-           
+
         # Look for inline comment
         y = x.split('#', 1)
         if len(y) > 1:
             ele['comment'] =  y[1]
-            
+
         # element: type, strength, L, d
         x = x.split()
         ele['type'] = x[0].upper()
         ele['strength'] = float(x[1])
         ele['L'] = float(x[2])
-        ele['d'] = float(x[3]) 
-        
+        ele['d'] = float(x[3])
+
         if inLoop:
             loopeles.append(ele)
         else:
             eles.append(ele)
-            
+
     return {'eles':eles, 'param':param}
 
 
-    
-    
+
+
 #-------------------------------------------------
 # beam file
 #    Beam Description File
-    
-    
+
+
 
 VALID_BEAM_COLUMNS = {'zpos',
  'tpos',
@@ -413,11 +413,11 @@ VALID_BEAM_COLUMNS = {'zpos',
 
 def parse_beam_file_header(fname):
     """
-    Parses a Genesis beam file header. 
-    
+    Parses a Genesis beam file header.
+
     Helper routine for parse_beam_file
     """
-    
+
     params = {}
     with open(fname) as f:
         i = 0
@@ -427,8 +427,8 @@ def parse_beam_file_header(fname):
             # Skip comments
             if x.startswith('#') or x == '':
                 continue
-            # parameter 
-            
+            # parameter
+
             if x.startswith('?'):
                 x = x[1:].strip()
                 if '=' in x:
@@ -441,159 +441,159 @@ def parse_beam_file_header(fname):
                     params['columns'] = col[1:]
             else:
                 #print(x)
-                # Finished. 
+                # Finished.
                 params['n_headerlines'] = i-1
                 if 'size' in params:
                     params['size'] = int(params['size'])
                 return params
-            
+
 def parse_beam_file(fname, verbose=False):
     """
-    Parses a Genesis beam file. 
-    
+    Parses a Genesis beam file.
+
     Asserts that the version is 1.0.
-    
+
     SIZE is optional, but will check.
-    
+
     Returns a dict of the columns.
-    
+
     See: genesis.writers.write_beam_file
-    
+
     """
-    
+
     params = parse_beam_file_header(fname)
-    
+
     dat = np.loadtxt(fname, skiprows=params['n_headerlines'])
-    
+
     size = dat.shape[0]
-    
+
     # Check version
     if 'version' in params:
         v = float(params['version'])
         assert v == 1.0 # This is the only version allowed
-    
+
     # Check size
     if 'size' in params:
-        assert size == params['size'], f"Mismatch with SIZE = {params['size']} and found column size {size}"   
-    
+        assert size == params['size'], f"Mismatch with SIZE = {params['size']} and found column size {size}"
+
     cdat = {}
     for i, name in enumerate(params['columns']):
         assert name in  VALID_BEAM_COLUMNS, f'{name} is not a valid beam column'
-            
+
         cdat[name] = dat[:, i]
-    
+
     if verbose:
         print(f'Parsed beam file: {fname} with {len(cdat)} columns')
-    
-    return cdat    
-    
+
+    return cdat
+
 #-------------------------------------------------
 #.dfl file
 #    Dump file at the end
 #    complex numbers, output in a loop over nslices, ny, nx
-    
+
 def parse_genesis_dfl(fname, nx):
     """
     fname: filename
     nx: grid size in x and y. Same as Genesis 'ncar'
-    
+
     Returns 3d numpy.array with indices as:
         [x, y, z]
-    
+
     """
     dat = np.fromfile(fname, dtype=np.complex).astype(np.complex)
-    npoints = dat.shape[0] 
-    
+    npoints = dat.shape[0]
+
     # Determine number of slices
     ny = nx
     nz =  npoints / ny /nx
-    assert (nz % 1 == 0), f'Confused shape {nx} {ny} {nz}' 
-    nz = int(nz)   
-    dat = dat.reshape(nz, ny, nx)    
+    assert (nz % 1 == 0), f'Confused shape {nx} {ny} {nz}'
+    nz = int(nz)
+    dat = dat.reshape(nz, ny, nx)
     dat = np.moveaxis(dat, [0,1,2], [2,1,0]) # z, y, x to x, y, z
-    
+
     return dat
-    
+
 
 
 #-------------------------------------------------
 #.fld file
-    
+
 def parse_genesis_fld(fname, nx, nz):
     """
     fname: filename
     ncar: grid size in x and y
-    nx: grid size in x and y. Same as Genesis 'ncar'  
+    nx: grid size in x and y. Same as Genesis 'ncar'
     nz: number of slices
-    
+
     The .fld file is written by Genesis in a loop over:
         histories, nslices, real/imaginary, ny, nx
-    
-    The number of histories can be computed from these. 
-    
+
+    The number of histories can be computed from these.
+
     Returns 4D numpy.array of complex numbers with indices:
-        [x, y, z, history] 
-    
+        [x, y, z, history]
+
     """
-  
+
     # Real and imaginary parts are separated
     dat = np.fromfile(fname, dtype=np.float).astype(float)
     npoints = dat.shape[0]
     # Determine number of slices
     ny = nx
-    
-    nhistories =  npoints / nz / 2 / ny / nx # 
+
+    nhistories =  npoints / nz / 2 / ny / nx #
     assert (nhistories % 1 == 0), f'Number {npoints} {nhistories}'
-    nhistories = int(nhistories)   
-    
-    # real and imaginary parts are written separately. 
-    dat = dat.reshape(nhistories, nz, 2,  ny, nx) # 
+    nhistories = int(nhistories)
+
+    # real and imaginary parts are written separately.
+    dat = dat.reshape(nhistories, nz, 2,  ny, nx) #
     dat =  np.moveaxis(dat, 2, 4) # Move complex indices to the end
     dat =  np.moveaxis(dat, [0,1,2,3], [3,2,1,0]) # exchange history, z, y, x to x, y, z, history
     # Reform complex numbers:
     dat = 1j*dat[:,:,:,:,1] + dat[:,:,:,:,0]
 
-    
-    return dat        
-    
-    
-    
-    
-    
+
+    return dat
+
+
+
+
+
 def parse_genesis_dpa(fname, npart):
     """
     Parses .dpa and .par files
-    
-    
+
+
      gamma, phase, x, y, px/mc, py/mc
      .par file: phase = psi  = kw*z + field_phase
-     .dpa file: phase = kw*z     
-    
+     .dpa file: phase = kw*z
+
     [bunch, var, list of points]
-    
+
     """
     pdat = np.fromfile(fname, dtype=np.float64) #.astype(float)
 
     nbunch = int(len(pdat)/6/npart)
-    
+
     bunch = pdat.reshape(nbunch,6,npart)
-    return bunch    
+    return bunch
 
 
 
 
 
 
-    
+
 #-------------------------------------------------
 # Input defaults
-# 
+#
 
 # Possible input files and recommended names
 POSSIBLE_INPUT_FILES = {
  'maginfile': 'genesis_lattice.in',
  'beamfile':  'genesis_beam.in',
- 'radfile':   'genesis_rad.in',      
+ 'radfile':   'genesis_rad.in',
  'distfile':  'genesis_dist.in',
  'fieldfile': 'genesis_field.in',
  'partfile':  'genesis_part.in'
@@ -603,16 +603,16 @@ MAIN_INPUT_DEFAULT = {
  # Possible Inputs files
  'maginfile': '',
  'beamfile': '',
- 'radfile': '',      
+ 'radfile': '',
  'distfile': '',
  'fieldfile': '',
  'partfile': '',
 
  # Output files
  'magoutfile': 'genesis_lattice.out',
- 'outputfile': 'genesis.out',    
-    
- # from template.in that Genesis creates  
+ 'outputfile': 'genesis.out',
+
+ # from template.in that Genesis creates
  'aw0': 0.735,
  'xkx': 0,
  'xky': 1,
@@ -710,7 +710,7 @@ MAIN_INPUT_DEFAULT = {
  'lout(21)': 0,
  'lout(22)': 0,
  'lout(23)': 0,
- 'lout(24)': 0,    
+ 'lout(24)': 0,
  'iphsty': 1,
  'ishsty': 1,
  'ippart': 0,
