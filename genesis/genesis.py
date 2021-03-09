@@ -52,7 +52,10 @@ class Genesis:
                  genesis_bin=None, 
                  use_tempdir=True,
                  workdir=None,
-                 verbose=False
+                 verbose=False,
+                 expand_paths = True,
+                 strict = True,
+                 fill_defaults = True
                 ):
         
         # Save init
@@ -67,6 +70,11 @@ class Genesis:
 
         self.binary_prefixes = [] #  For example, ['mpirun', '-n', '2']
         self.finished = False
+
+        # input load options
+        self.expand_paths = expand_paths
+        self.strict = strict
+        self.fill_defaults = fill_defaults
     
         # 
         self.output = {}
@@ -144,7 +152,7 @@ class Genesis:
         }        
         d = self.input
         
-        main = parsers.parse_main_inputfile(filePath)
+        main = parsers.parse_main_inputfile(filePath, self.expand_paths, self.strict, self.fill_defaults)
         d['param'] = main
         
         if main['beamfile'] != '':
