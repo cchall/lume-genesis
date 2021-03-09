@@ -55,7 +55,8 @@ class Genesis:
                  verbose=False,
                  expand_paths = True,
                  strict = True,
-                 fill_defaults = True
+                 fill_defaults = True,
+                 check_executable = True
                 ):
         
         # Save init
@@ -65,8 +66,14 @@ class Genesis:
         if workdir:
             assert os.path.exists(workdir), 'workdir does not exist: '+workdir           
         self.verbose=verbose
-        
-        self.genesis_bin = find_genesis2_executable(genesis_bin, verbose=verbose)
+
+        if check_executable:
+            self.genesis_bin = find_genesis2_executable(genesis_bin, verbose=verbose)
+        else:
+            # TODO: This could be upgraded to allow specification of the shifter run script in place of executable
+            default_executable = 'genesis2'
+            self.vprint('Not checking for genesis executable. Will default to: {}'.format(default_executable))
+            self.genesis_bin = default_executable
 
         self.binary_prefixes = [] #  For example, ['mpirun', '-n', '2']
         self.finished = False
